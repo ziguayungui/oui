@@ -12,6 +12,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/etherdevice.h>
+#include <linux/version.h>
 
 #include "term.h"
 
@@ -144,6 +145,7 @@ static int proc_open(struct inode *inode, struct file *file)
 	return single_open(file, proc_show, NULL);
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0)
 const static struct file_operations proc_ops = {
 	.owner 		= THIS_MODULE,
 	.open  		= proc_open,
@@ -152,6 +154,15 @@ const static struct file_operations proc_ops = {
 	.llseek 	= seq_lseek,
 	.release 	= single_release
 };
+#else
+static const struct proc_ops term_proc_ops = {
+    .proc_open      = proc_open,
+    .proc_read      = seq_read,
+    .proc_write     = proc_write,
+    .proc_lseek     = seq_lseek,
+    .proc_release   = single_release,
+};
+#endif
 
 static void term_cleanup(struct work_struct *work)
 {
@@ -220,9 +231,11 @@ int term_init(struct proc_dir_entry *proc)
     term_cache = kmem_cache_create("term_cache", sizeof(struct terminal), 0, 0, NULL);
 	if (!term_cache)
 		return -ENOMEM;
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0)
     proc_create("term", 0644, proc, &proc_ops);
-
+#else
+    proc_create("term", 0644, proc, &term_proc_ops);
+#endif
 	rwlock_init(&lock);
 
     for (i = 0; i < TERM_HASH_SIZE; i++) {

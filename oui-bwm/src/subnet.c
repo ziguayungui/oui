@@ -9,6 +9,7 @@
 #include <linux/inetdevice.h>
 #include <linux/proc_fs.h>
 #include <linux/inet.h>
+#include <linux/version.h>
 
 #include "subnet.h"
 
@@ -104,6 +105,7 @@ static int proc_open(struct inode *inode, struct file *file)
 	return single_open(file, proc_show, NULL);
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0)
 const static struct file_operations proc_ops = {
 	.owner 		= THIS_MODULE,
 	.open  		= proc_open,
@@ -112,11 +114,23 @@ const static struct file_operations proc_ops = {
 	.llseek 	= seq_lseek,
 	.release 	= single_release
 };
+#else
+static const struct proc_ops subnet_proc_ops = {
+    .proc_open      = proc_open,
+    .proc_read      = seq_read,
+    .proc_write     = proc_write,
+    .proc_lseek     = seq_lseek,
+    .proc_release   = single_release,
+};
+#endif
 
 int subnet_init(struct proc_dir_entry *proc)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0)
     proc_create("subnet", 0644, proc, &proc_ops);
-
+#else
+    proc_create("subnet", 0644, proc, &subnet_proc_ops);
+#endif
     return 0;
 }
 

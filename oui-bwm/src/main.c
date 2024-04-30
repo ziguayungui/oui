@@ -58,6 +58,7 @@ static int proc_open(struct inode *inode, struct file *file)
     return single_open(file, proc_show, NULL);
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0)
 const static struct file_operations proc_ops = {
     .owner 		= THIS_MODULE,
     .open  		= proc_open,
@@ -66,6 +67,15 @@ const static struct file_operations proc_ops = {
     .llseek 	= seq_lseek,
     .release 	= single_release
 };
+#else
+static const struct proc_ops bwm_proc_ops = {
+    .proc_open      = proc_open,
+    .proc_read      = seq_read,
+    .proc_write     = proc_write,
+    .proc_lseek     = seq_lseek,
+    .proc_release   = single_release,
+};
+#endif
 
 static u32 oui_bwm_hook(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
@@ -119,9 +129,11 @@ static int __init oui_bwm_init(void)
         pr_err("can't create dir /proc/oui/\n");
         return -ENODEV;;
     }
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0)
     proc_create("config", 0644, proc, &proc_ops);
-
+#else
+    proc_create("config", 0644, proc, &bwm_proc_ops);
+#endif
     subnet_init(proc);
 
     ret = term_init(proc);
